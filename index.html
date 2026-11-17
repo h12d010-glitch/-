@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StageAI - AI 무대·조명 사전 시각화 시뮬레이터</title>
+  <style>
+    :root {
+      --bg-dark: #0f1117;
+      --panel-bg: #181b24;
+      --border-color: #2a2f3d;
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --accent-green: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-blue: #3b82f6;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* 헤더 */
+    header {
+      background-color: var(--panel-bg);
+      border-bottom: 1px solid var(--border-color);
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+
+    .logo span.badge {
+      background: rgba(99, 102, 241, 0.2);
+      color: #818cf8;
+      font-size: 0.75rem;
+      padding: 3px 8px;
+      border-radius: 99px;
+      border: 1px solid rgba(99, 102, 241, 0.4);
+    }
+
+    /* 메인 레이아웃 (3단 그리드) */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 360px 1fr 340px;
+      height: calc(100vh - 53px);
+    }
+
+    .panel {
+      background-color: var(--panel-bg);
+      border-right: 1px solid var(--border-color);
+      padding: 18px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .panel:last-child {
+      border-right: none;
+      border-left: 1px solid var(--border-color);
+    }
+
+    h2 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .sub-desc {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    /* 샘플 버튼 */
+    .sample-btns {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .btn-sample {
+      background: #232734;
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .btn-sample:hover {
+      border-color: var(--primary);
+      background: #2a2f40;
+    }
+
+    textarea {
+      width: 100%;
+      height: 120px;
+      background-color: #11131a;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: var(--text-main);
+      padding: 12px;
+      font-size: 0.88rem;
+      line-height: 1.5;
+      resize: none;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    .btn-primary {
+      width: 100%;
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      padding: 11px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .btn-primary:hover {
+      background-color: var(--primary-hover);
+    }
+
+    /* XAI 근거 분석 카드 */
+    .card {
+      background-color: #12141c;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .card-title {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .highlight-box {
+      font-size: 0.85rem;
+      line-height: 1.6;
+      background: #181b24;
+      padding: 10px;
+      border-radius: 6px;
+      border-left: 3px solid var(--primary);
+    }
+
+    .hl-time { background: rgba(59, 130, 246, 0.25); color: #93c5fd; padding: 1px 4px; border-radius: 4px; font-weight: 600; }
+    .hl-mood { background: rgba(245, 158, 11, 0.25); color: #fcd34d; padding: 1px 4px; border-radius: 4px; font-weight: 600; }
+    .hl-obj  { background: rgba(16, 185, 129, 0.25); color: #6ee7b7; padding: 1px 4px; border-radius: 4px; font-weight: 600; }
+
+    .attr-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .attr-item {
+      background: #181b24;
+      padding: 8px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+    }
+
+    .attr-label { color: var(--text-muted); font-size: 0.72rem; }
+    .attr-val { font-weight: 600; margin-top: 2px; color: #fff; }
+
+    /* 중앙 3D 뷰어 */
+    .viewport-wrapper {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at center, #1e2230 0%, #090a0f 100%);
+    }
+
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+    }
+
+    .viewport-overlay {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      background: rgba(15, 17, 23, 0.8);
+      backdrop-filter: blur(6px);
+      border: 1px solid var(--border-color);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      pointer-events: none;
+    }
+
+    .viewport-hint {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 17, 23, 0.75);
+      padding: 6px 14px;
+      border-radius: 99px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      border: 1px solid var(--border-color);
+      pointer-events: none;
+    }
+
+    /* 우측 통제 및 DMX 패널 */
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .control-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
+    .prop-toggles {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .toggle-btn {
+      background: #12141c;
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      padding: 7px;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      cursor: pointer;
+      text-align: center;
+      transition: 0.2s;
+    }
+
+    .toggle-btn.active {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: var(--accent-green);
+      color: #6ee7b7;
+      font-weight: 600;
+    }
+
+    /* DMX 테이블 */
+    table.dmx-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.78rem;
+      text-align: center;
+    }
+
+    table.dmx-table th, table.dmx-table td {
+      border: 1px solid var(--border-color);
+      padding: 6px 4px;
+    }
+
+    table.dmx-table th {
+      background: #1c202b;
+      color: var(--text-muted);
+    }
+
+    table.dmx-table td {
+      font-family: monospace;
+      font-size: 0.85rem;
+      color: #38bdf8;
+      font-weight: 600;
+    }
+
+    .btn-export {
+      background: #1f2433;
+      border: 1px solid var(--primary);
+      color: #a5b4fc;
+      padding: 9px;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.2s;
+      width: 100%;
+      margin-top: 6px;
+    }
+
+    .btn-export:hover {
+      background: var(--primary);
+      color: white;
+    }
+  </style>
+  <!-- Three.js & OrbitControls CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+  <header>
+    <div class="logo">
+      🎭 StageAI
+      <span class="badge">AI 무대·조명 사전 시각화 프로토타입</span>
+    </div>
+    <div style="font-size: 0.8rem; color: var(--text-muted);">
+      소규모 극단·학생 연출가를 위한 대본 기반 3D 무대 및 DMX-512 자동 설계 시스템
+    </div>
+  </header>
+
+  <main>
+    <!-- 좌측: 대본 입력 및 XAI 근거 분석 -->
+    <section class="panel">
+      <div>
+        <h2>1. 공연 대본 지문 입력</h2>
+        <p class="sub-desc">지문 속 시공간, 극적 분위기, 소품을 AI가 문맥 분석하여 무대와 조명을 자동 구성합니다.</p>
+      </div>
+
+      <div class="sample-btns">
+        <button class="btn-sample" onclick="loadSample(0)">예시1: 비극·고독</button>
+        <button class="btn-sample" onclick="loadSample(1)">예시2: 스릴러·긴장</button>
+        <button class="btn-sample" onclick="loadSample(2)">예시3: 로맨스·온기</button>
+      </div>
+
+      <textarea id="script-input" placeholder="대본의 지문이나 장면을 입력하세요..."></textarea>
+      <button class="btn-primary" onclick="analyzeScript()">✨ AI 무대·조명 분석 실행</button>
+
+      <!-- AI 추천 근거(XAI) 패널 -->
+      <div class="card">
+        <div class="card-title">🔍 AI 문맥 분석 및 추천 근거 (가중치 키워드)</div>
+        <div id="xai-highlight" class="highlight-box">
+          대본을 입력하고 분석 버튼을 누르면 AI가 판단 근거로 삼은 핵심 단어가 표시됩니다.
+        </div>
+        <div style="margin-top: 8px; font-size: 0.72rem; color: var(--text-muted);">
+          <span class="hl-time">시공간 배경</span> &nbsp;
+          <span class="hl-mood">정서·분위기</span> &nbsp;
+          <span class="hl-obj">무대 오브젝트</span>
+        </div>
+
+        <div class="attr-grid">
+          <div class="attr-item">
+            <div class="attr-label">시공간 배경</div>
+            <div class="attr-val" id="res-space">-</div>
+          </div>
+          <div class="attr-item">
+            <div class="attr-label">극적 정서 (장르)</div>
+            <div class="attr-val" id="res-mood">-</div>
+          </div>
+          <div class="attr-item">
+            <div class="attr-label">추천 색온도 / 조도</div>
+            <div class="attr-val" id="res-light">-</div>
+          </div>
+          <div class="attr-item">
+            <div class="attr-label">자동 배치 소품</div>
+            <div class="attr-val" id="res-props">-</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 중앙: 3D 가상 무대 시뮬레이터 -->
+    <section class="viewport-wrapper">
+      <div class="viewport-overlay">
+        <div style="font-weight: 600; color: #fff; margin-bottom: 2px;">3D 가상 블랙박스 무대</div>
+        <div id="stage-status" style="color: var(--text-muted); font-size: 0.75rem;">대기 중 (기본 조명 상태)</div>
+      </div>
+      <div id="canvas-container"></div>
+      <div class="viewport-hint">🖱️ 마우스 좌클릭 드래그: 무대 회전 | 휠 스크롤: 확대/축소</div>
+    </section>
+
+    <!-- 우측: 연출가 직접 통제 및 DMX-512 출력 -->
+    <section class="panel">
+      <div>
+        <h2>2. 연출가 세부 통제 (직접 수정)</h2>
+        <p class="sub-desc">AI가 제안한 설정값을 연출 의도에 맞게 실시간으로 검증하고 수정할 수 있습니다.</p>
+      </div>
+
+      <div class="card">
+        <div class="control-group">
+          <div class="control-header">
+            <span>조도 (Dimmer Intensity)</span>
+            <span id="val-intensity" style="color: #818cf8; font-weight: 600;">75%</span>
+          </div>
+          <input type="range" id="ctrl-intensity" min="10" max="100" value="75" oninput="updateFromControls()" />
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span>색온도 (Color Temp)</span>
+            <span id="val-kelvin" style="color: #fbbf24; font-weight: 600;">4200K</span>
+          </div>
+          <input type="range" id="ctrl-kelvin" min="2500" max="7000" step="100" value="4200" oninput="updateFromControls()" />
+        </div>
+
+        <div class="control-group" style="margin-bottom: 0;">
+          <div class="control-header">
+            <span>스포트라이트 투사각 (Beam Angle)</span>
+            <span id="val-angle" style="color: #34d399; font-weight: 600;">35°</span>
+          </div>
+          <input type="range" id="ctrl-angle" min="15" max="75" value="35" oninput="updateFromControls()" />
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📦 3D 무대 오브젝트 배치 ON/OFF</div>
+        <div class="prop-toggles">
+          <button class="toggle-btn active" id="btn-window" onclick="toggleProp('window')">🪟 대형 창문</button>
+          <button class="toggle-btn active" id="btn-desk" onclick="toggleProp('desk')">🪵 나무 책상</button>
+          <button class="toggle-btn" id="btn-bench" onclick="toggleProp('bench')">🪑 공원 벤치</button>
+          <button class="toggle-btn active" id="btn-chair" onclick="toggleProp('chair')">💺 빈 의자</button>
+        </div>
+      </div>
+
+      <!-- DMX-512 출력 -->
+      <div class="card">
+        <div class="card-title">🎛️ 표준 DMX-512 제어 신호 변환 (0~255)</div>
+        <table class="dmx-table">
+          <thead>
+            <tr>
+              <th>CH1<br>조도</th>
+              <th>CH2<br>Red</th>
+              <th>CH3<br>Green</th>
+              <th>CH4<br>Blue</th>
+              <th>CH5<br>투사각</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td id="dmx-dim">191</td>
+              <td id="dmx-r">255</td>
+              <td id="dmx-g">214</td>
+              <td id="dmx-b">170</td>
+              <td id="dmx-ang">85</td>
+            </tr>
+          </tbody>
+        </table>
+        <button class="btn-export" onclick="downloadDMX()">💾 DMX-512 큐 파일 내보내기 (.json)</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // 1. 샘플 대본 데이터
+    const SAMPLES = [
+      {
+        text: "[새벽 3시, 낡고 텅 빈 실내 방] 차가운 달빛이 커다란 창문 틈으로 스며든다. 낡은 책상 위에는 멈춰버린 시계가 놓여 있고, 그 옆 빈 의자에는 아무도 앉아 있지 않다. 숨 막히는 정적 속에서 주인공은 고독과 깊은 상실감에 잠겨 홀로 서 있다.",
+        space: "새벽 / 실내",
+        mood: "비극·고독 (88%)",
+        intensity: 42,
+        kelvin: 6200,
+        angle: 24,
+        props: { window: true, desk: true, bench: false, chair: true },
+        timeWords: ["새벽 3시", "실내 방", "달빛"],
+        moodWords: ["낡고 텅 빈", "차가운", "숨 막히는 정적", "고독", "상실감"],
+        objWords: ["창문", "책상", "빈 의자"]
+      },
+      {
+        text: "[한밤중, 안개가 자욱한 야외 뒷골목] 가로등 불빛마저 위태롭게 깜빡인다. 젖은 아스팔트 길가 한편에 낡은 벤치 하나가 놓여 있다. 누군가 뒤를 쫓아오는 듯한 날카로운 발소리와 긴장감이 감도는 서늘한 밤이다.",
+        space: "한밤중 / 야외",
+        mood: "스릴러·긴장 (92%)",
+        intensity: 30,
+        kelvin: 6800,
+        angle: 18,
+        props: { window: false, desk: false, bench: true, chair: false },
+        timeWords: ["한밤중", "야외 뒷골목", "밤"],
+        moodWords: ["안개가 자욱한", "위태롭게", "날카로운", "긴장감", "서늘한"],
+        objWords: ["벤치"]
+      },
+      {
+        text: "[해질녘, 햇살이 가득한 아늑한 실내 카페] 노을빛이 창문을 통해 따뜻하게 번진다. 원목 책상 마주편 의자에 앉은 두 사람이 서로를 바라보며 설레는 미소를 짓는다. 온기와 낭만이 가득한 저녁 무렵이다.",
+        space: "해질녘 / 실내",
+        mood: "로맨스·온기 (95%)",
+        intensity: 85,
+        kelvin: 2900,
+        angle: 50,
+        props: { window: true, desk: true, bench: false, chair: true },
+        timeWords: ["해질녘", "실내 카페", "저녁 무렵"],
+        moodWords: ["햇살이 가득한", "아늑한", "노을빛", "따뜻하게", "설레는", "온기", "낭만"],
+        objWords: ["창문", "책상", "의자"]
+      }
+    ];
+
+    // 2. Three.js 3D 무대 초기화
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x090a0f, 0.035);
+
+    const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+    camera.position.set(0, 6.5, 13);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.maxPolarAngle = Math.PI / 2 - 0.05;
+    controls.minDistance = 5;
+    controls.maxDistance = 22;
+
+    // 무대 바닥 & 배경막 (블랙박스 극장)
+    const stageFloor = new THREE.Mesh(
+      new THREE.BoxGeometry(12, 0.4, 8),
+      new THREE.MeshStandardMaterial({ color: 0x222530, roughness: 0.7 })
+    );
+    stageFloor.position.y = -0.2;
+    stageFloor.receiveShadow = true;
+    scene.add(stageFloor);
+
+    const backWall = new THREE.Mesh(
+      new THREE.BoxGeometry(12, 6, 0.3),
+      new THREE.MeshStandardMaterial({ color: 0x161821, roughness: 0.9 })
+    );
+    backWall.position.set(0, 2.8, -3.85);
+    backWall.receiveShadow = true;
+    scene.add(backWall);
+
+    // 조명 세팅 (환경광 + 메인 스포트라이트 + 빛기둥 시각화)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.22);
+    scene.add(ambientLight);
+
+    const spotLight = new THREE.SpotLight(0xffe4b5, 2.2);
+    spotLight.position.set(0, 7.5, 1.5);
+    spotLight.angle = THREE.MathUtils.degToRad(35);
+    spotLight.penumbra = 0.45;
+    spotLight.decay = 1.2;
+    spotLight.distance = 25;
+    spotLight.castShadow = true;
+    scene.add(spotLight);
+
+    // 조명기구 메쉬 & 빛기둥 효과
+    const lampMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.25, 0.35, 0.6, 16),
+      new THREE.MeshBasicMaterial({ color: 0xffe4b5 })
+    );
+    lampMesh.position.copy(spotLight.position);
+    lampMesh.lookAt(0, 0, 0);
+    lampMesh.rotateX(Math.PI / 2);
+    scene.add(lampMesh);
+
+    const beamGeo = new THREE.ConeGeometry(3.2, 7.5, 32, 1, true);
+    beamGeo.translate(0, -3.75, 0);
+    const beamMat = new THREE.MeshBasicMaterial({
+      color: 0xffe4b5,
+      transparent: true,
+      opacity: 0.08,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+    const lightBeam = new THREE.Mesh(beamGeo, beamMat);
+    lightBeam.position.copy(spotLight.position);
+    scene.add(lightBeam);
+
+    // 3D 소품 오브젝트 생성 함수
+    const propMeshes = {};
+
+    function buildProps() {
+      // 1) 창문 (Window)
+      const winGroup = new THREE.Group();
+      const frameMat = new THREE.MeshStandardMaterial({ color: 0x4b5563 });
+      const glassMat = new THREE.MeshBasicMaterial({ color: 0x93c5fd, transparent: true, opacity: 0.35 });
+      const glass = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 2.6), glassMat);
+      const topBar = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.15, 0.2), frameMat);
+      topBar.position.y = 1.3;
+      const botBar = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.15, 0.2), frameMat);
+      botBar.position.y = -1.3;
+      const midV = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.6, 0.15), frameMat);
+      const midH = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.1, 0.15), frameMat);
+      winGroup.add(glass, topBar, botBar, midV, midH);
+      winGroup.position.set(-2.5, 2.6, -3.6);
+      scene.add(winGroup);
+      propMeshes.window = winGroup;
+
+      // 2) 책상 (Desk)
+      const deskGroup = new THREE.Group();
+      const woodMat = new THREE.MeshStandardMaterial({ color: 0x854d0e, roughness: 0.6 });
+      const top = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.12, 1.1), woodMat);
+      top.position.y = 1.0;
+      top.castShadow = true;
+      deskGroup.add(top);
+      [[-0.95, -0.45], [0.95, -0.45], [-0.95, 0.45], [0.95, 0.45]].forEach(([x, z]) => {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.0, 0.1), woodMat);
+        leg.position.set(x, 0.5, z);
+        leg.castShadow = true;
+        deskGroup.add(leg);
+      });
+      deskGroup.position.set(-0.6, 0, -0.5);
+      scene.add(deskGroup);
+      propMeshes.desk = deskGroup;
+
+      // 3) 의자 (Chair)
+      const chairGroup = new THREE.Group();
+      const chairMat = new THREE.MeshStandardMaterial({ color: 0x9a3412, roughness: 0.6 });
+      const seat = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.08, 0.65), chairMat);
+      seat.position.y = 0.55;
+      seat.castShadow = true;
+      const back = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.65, 0.08), chairMat);
+      back.position.set(0, 0.9, -0.28);
+      back.castShadow = true;
+      chairGroup.add(seat, back);
+      [[-0.26, -0.26], [0.26, -0.26], [-0.26, 0.26], [0.26, 0.26]].forEach(([x, z]) => {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.55, 0.07), chairMat);
+        leg.position.set(x, 0.275, z);
+        chairGroup.add(leg);
+      });
+      chairGroup.position.set(0.9, 0, -0.3);
+      chairGroup.rotation.y = -0.5;
+      scene.add(chairGroup);
+      propMeshes.chair = chairGroup;
+
+      // 4) 벤치 (Bench)
+      const benchGroup = new THREE.Group();
+      const benchMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.5 });
+      const bSeat = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.1, 0.7), benchMat);
+      bSeat.position.y = 0.55;
+      bSeat.castShadow = true;
+      const bBack = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.5, 0.08), benchMat);
+      bBack.position.set(0, 0.85, -0.32);
+      bBack.castShadow = true;
+      const legL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.55, 0.65), benchMat);
+      legL.position.set(-1.1, 0.275, 0);
+      const legR = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.55, 0.65), benchMat);
+      legR.position.set(1.1, 0.275, 0);
+      benchGroup.add(bSeat, bBack, legL, legR);
+      benchGroup.position.set(0.4, 0, 0.6);
+      benchGroup.visible = false;
+      scene.add(benchGroup);
+      propMeshes.bench = benchGroup;
+    }
+    buildProps();
+
+    // 색온도(Kelvin) -> RGB 변환 함수
+    function kelvinToRGB(kelvin) {
+      const temp = kelvin / 100;
+      let r, g, b;
+      if (temp <= 66) {
+        r = 255;
+        g = Math.min(255, Math.max(0, 99.4708025861 * Math.log(temp) - 161.1195681631));
+        b = temp <= 19 ? 0 : Math.min(255, Math.max(0, 138.5177312231 * Math.log(temp - 10) - 305.0447927307));
+      } else {
+        r = Math.min(255, Math.max(0, 329.698727446 * Math.pow(temp - 60, -0.1332047592)));
+        g = Math.min(255, Math.max(0, 288.1221695283 * Math.pow(temp - 60, -0.0755148492)));
+        b = 255;
+      }
+      return { r: Math.round(r), g: Math.round(g), b: Math.round(b) };
+    }
+
+    // 슬라이더 조작 시 3D 조명 및 DMX-512 실시간 업데이트
+    function updateFromControls() {
+      const intensity = parseInt(document.getElementById('ctrl-intensity').value);
+      const kelvin = parseInt(document.getElementById('ctrl-kelvin').value);
+      const angle = parseInt(document.getElementById('ctrl-angle').value);
+
+      document.getElementById('val-intensity').innerText = intensity + '%';
+      document.getElementById('val-kelvin').innerText = kelvin + 'K';
+      document.getElementById('val-angle').innerText = angle + '°';
+
+      const rgb = kelvinToRGB(kelvin);
+      const threeColor = new THREE.Color(`rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`);
+
+      // 3D 무대 조명 반영
+      spotLight.color.copy(threeColor);
+      spotLight.intensity = (intensity / 100) * 3.2;
+      spotLight.angle = THREE.MathUtils.degToRad(angle);
+      ambientLight.intensity = 0.08 + (intensity / 100) * 0.25;
+
+      lampMesh.material.color.copy(threeColor);
+      beamMat.color.copy(threeColor);
+      beamMat.opacity = (intensity / 100) * 0.14;
+      const scaleFactor = Math.tan(THREE.MathUtils.degToRad(angle)) / Math.tan(THREE.MathUtils.degToRad(35));
+      lightBeam.scale.set(scaleFactor, 1, scaleFactor);
+
+      // DMX-512 변환 (0~255 정수 규격)
+      const dmxDim = Math.round((intensity / 100) * 255);
+      const dmxAng = Math.round(((angle - 15) / (75 - 15)) * 255);
+
+      document.getElementById('dmx-dim').innerText = dmxDim;
+      document.getElementById('dmx-r').innerText = rgb.r;
+      document.getElementById('dmx-g').innerText = rgb.g;
+      document.getElementById('dmx-b').innerText = rgb.b;
+      document.getElementById('dmx-ang').innerText = dmxAng;
+
+      document.getElementById('stage-status').innerText =
+        `조도 ${intensity}% | 색온도 ${kelvin}K | 투사각 ${angle}° 적용 중`;
+    }
+
+    // 소품 토글 제어
+    function toggleProp(name) {
+      const mesh = propMeshes[name];
+      const btn = document.getElementById('btn-' + name);
+      mesh.visible = !mesh.visible;
+      btn.classList.toggle('active', mesh.visible);
+    }
+
+    function applyPropsState(state) {
+      Object.keys(state).forEach(key => {
+        propMeshes[key].visible = state[key];
+        document.getElementById('btn-' + key).classList.toggle('active', state[key]);
+      });
+    }
+
+    // 샘플 불러오기
+    function loadSample(idx) {
+      document.getElementById('script-input').value = SAMPLES[idx].text;
+      analyzeScript();
+    }
+
+    // AI 대본 문맥 분석 및 XAI 하이라이트 생성
+    function analyzeScript() {
+      const text = document.getElementById('script-input').value.trim();
+      if (!text) {
+        alert("분석할 공연 대본 지문을 입력하거나 상단 예시 버튼을 눌러주세요.");
+        return;
+      }
+
+      // 샘플 매칭 또는 사용자 직접 입력 텍스트 규칙+문맥 휴리스틱 분석
+      const matchedSample = SAMPLES.find(s => s.text === text);
+      let result;
+
+      if (matchedSample) {
+        result = matchedSample;
+      } else {
+        // 사용자 자유 입력 대본 분석 로직
+        const isNight = /밤|새벽|어두운|달빛|심야/.test(text);
+        const isSunset = /해질녘|노을|저녁|석양|오후/.test(text);
+        const isOutdoor = /야외|골목|공원|거리|숲|바다/.test(text);
+
+        let mood = "희극·활기 (80%)", intensity = 80, kelvin = 4800, angle = 45;
+        let moodWords = [];
+
+        if (/고독|슬픔|비극|눈물|차가운|정적|상실|외로/.test(text)) {
+          mood = "비극·고독 (86%)"; intensity = 40; kelvin = 6100; angle = 25;
+          moodWords = text.match(/고독|슬픔|비극|눈물|차가운|정적|상실|외로[가-힣]*/g) || [];
+        } else if (/긴장|공포|스릴러|위태|살인|추격|불안|서늘/.test(text)) {
+          mood = "스릴러·긴장 (90%)"; intensity = 32; kelvin = 6700; angle = 20;
+          moodWords = text.match(/긴장|공포|스릴러|위태|살인|추격|불안|서늘[가-힣]*/g) || [];
+        } else if (/사랑|로맨스|따뜻|설레|온기|미소|낭만|햇살/.test(text)) {
+          mood = "로맨스·온기 (91%)"; intensity = 82; kelvin = 3000; angle = 48;
+          moodWords = text.match(/사랑|로맨스|따뜻|설레|온기|미소|낭만|햇살[가-힣]*/g) || [];
+        } else if (isNight) {
+          kelvin = 6000; intensity = 45;
+        } else if (isSunset) {
+          kelvin = 3100; intensity = 75;
+        }
+
+        const props = {
+          window: /창문|창가/.test(text),
+          desk: /책상|테이블/.test(text),
+          bench: /벤치/.test(text),
+          chair: /의자/.test(text)
+        };
+        if (!props.window && !props.desk && !props.bench && !props.chair) {
+          props.chair = true; // 기본 오브젝트
+        }
+
+        result = {
+          text,
+          space: `${isNight ? '야간/새벽' : isSunset ? '해질녘' : '주간'} / ${isOutdoor ? '야외' : '실내'}`,
+          mood,
+          intensity,
+          kelvin,
+          angle,
+          props,
+          timeWords: text.match(/밤|새벽|어두운|달빛|해질녘|노을|저녁|야외|실내|골목|방|카페[가-힣]*/g) || [],
+          moodWords,
+          objWords: text.match(/창문|창가|책상|테이블|벤치|의자[가-힣]*/g) || []
+        };
+      }
+
+      // XAI 키워드 하이라이트 HTML 생성
+      let highlighted = result.text;
+      const wrapWords = (words, cls) => {
+        [...new Set(words)].forEach(w => {
+          if (w) highlighted = highlighted.replaceAll(w, `<span class="${cls}">${w}</span>`);
+        });
+      };
+      wrapWords(result.timeWords, 'hl-time');
+      wrapWords(result.moodWords, 'hl-mood');
+      wrapWords(result.objWords, 'hl-obj');
+
+      document.getElementById('xai-highlight').innerHTML = highlighted;
+      document.getElementById('res-space').innerText = result.space;
+      document.getElementById('res-mood').innerText = result.mood;
+      document.getElementById('res-light').innerText = `${result.kelvin}K / ${result.intensity}%`;
+
+      const propNames = [];
+      if (result.props.window) propNames.push("창문");
+      if (result.props.desk) propNames.push("책상");
+      if (result.props.bench) propNames.push("벤치");
+      if (result.props.chair) propNames.push("의자");
+      document.getElementById('res-props').innerText = propNames.join(', ') || '없음';
+
+      // 컨트롤 및 3D 무대 동기화
+      document.getElementById('ctrl-intensity').value = result.intensity;
+      document.getElementById('ctrl-kelvin').value = result.kelvin;
+      document.getElementById('ctrl-angle').value = result.angle;
+
+      applyPropsState(result.props);
+      updateFromControls();
+    }
+
+    // DMX-512 JSON 파일 다운로드
+    function downloadDMX() {
+      const dmxData = {
+        service: "StageAI DMX-512 Cue Exporter",
+        timestamp: new Date().toISOString(),
+        scene_info: {
+          space: document.getElementById('res-space').innerText,
+          mood: document.getElementById('res-mood').innerText,
+          props: document.getElementById('res-props').innerText
+        },
+        dmx512_channels: {
+          CH1_Dimmer: parseInt(document.getElementById('dmx-dim').innerText),
+          CH2_Red: parseInt(document.getElementById('dmx-r').innerText),
+          CH3_Green: parseInt(document.getElementById('dmx-g').innerText),
+          CH4_Blue: parseInt(document.getElementById('dmx-b').innerText),
+          CH5_BeamAngle: parseInt(document.getElementById('dmx-ang').innerText)
+        }
+      };
+
+      const blob = new Blob([JSON.stringify(dmxData, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "stageai_dmx512_cue.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // 렌더링 루프 & 반응형 리사이즈
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    });
+
+    // 초기 예시 1번 로드
+    loadSample(0);
+  </script>
+</body>
+</html>
